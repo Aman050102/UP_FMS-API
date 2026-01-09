@@ -2,7 +2,7 @@ import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 /**
- * ตารางผู้ใช้งาน (Users)
+ * 1. ตารางผู้ใช้งาน (Users)
  * รองรับทั้งแอดมิน (staff) และนิสิตช่วยงาน (person)
  */
 export const users = sqliteTable('users', {
@@ -16,8 +16,8 @@ export const users = sqliteTable('users', {
 });
 
 /**
- * ตารางคลังอุปกรณ์ (Equipments)
- * เก็บข้อมูลจำนวนทั้งหมดและจำนวนคงเหลือในสต็อก
+ * 2. ตารางคลังอุปกรณ์ (Equipments)
+ * เก็บข้อมูลชื่ออุปกรณ์ จำนวนทั้งหมด และจำนวนคงเหลือปัจจุบัน
  */
 export const equipments = sqliteTable('equipments', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -27,8 +27,8 @@ export const equipments = sqliteTable('equipments', {
 });
 
 /**
- * ตารางบันทึกการยืม-คืน (Borrow Records)
- * ใช้ร่วมกันทั้งระบบเพื่อเก็บประวัติการทำรายการ
+ * 3. ตารางบันทึกการยืม-คืน (Borrow Records)
+ * ใช้สำหรับเก็บประวัติการทำรายการยืมและคืนอุปกรณ์แบบละเอียด
  */
 export const borrowRecords = sqliteTable('borrow_records', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -42,7 +42,8 @@ export const borrowRecords = sqliteTable('borrow_records', {
 });
 
 /**
- * ตารางสถิติการเช็คอินสนาม (Check-in Events)
+ * 4. ตารางสถิติการเช็คอินสนาม (Check-in Events)
+ * สำหรับบันทึกการเข้าใช้งานพื้นที่สนามกีฬา
  */
 export const checkinEvents = sqliteTable('checkin_events', {
   id: integer('id').primaryKey({ autoIncrement: true }),
