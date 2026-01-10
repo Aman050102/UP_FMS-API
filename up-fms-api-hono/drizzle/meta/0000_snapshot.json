@@ -66,12 +66,8 @@
           "name": "borrow_records_equipment_id_equipments_id_fk",
           "tableFrom": "borrow_records",
           "tableTo": "equipments",
-          "columnsFrom": [
-            "equipment_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["equipment_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -181,9 +177,7 @@
       "indexes": {
         "equipments_name_unique": {
           "name": "equipments_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -251,16 +245,12 @@
       "indexes": {
         "users_username_unique": {
           "name": "users_username_unique",
-          "columns": [
-            "username"
-          ],
+          "columns": ["username"],
           "isUnique": true
         },
         "users_user_code_unique": {
           "name": "users_user_code_unique",
-          "columns": [
-            "user_code"
-          ],
+          "columns": ["user_code"],
           "isUnique": true
         }
       },
