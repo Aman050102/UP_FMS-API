@@ -64,3 +64,19 @@ VALUES ('Admin System', 'admin@up.ac.th', 'admin', 'password123', 'staff', 1);
 ALTER TABLE borrow_records ADD COLUMN faculty TEXT;
 ALTER TABLE borrow_records ADD COLUMN action TEXT;
 ALTER TABLE borrow_records ADD COLUMN student_name TEXT;
+
+CREATE TABLE IF NOT EXISTS field_bookings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requester_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    field_name TEXT NOT NULL,
+    building TEXT,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    purpose_detail TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

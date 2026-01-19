@@ -8,7 +8,7 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").default("pending"), // 'staff', 'student'
+  role: text("role").default("pending"),
   isApproved: integer("is_approved").default(0),
   studentId: text("student_id").default(""),
   faculty: text("faculty").default(""),
@@ -31,8 +31,8 @@ export const borrowRecords = sqliteTable("borrow_records", {
   studentName: text("student_name"),
   faculty: text("faculty"),
   qty: integer("qty").notNull().default(1),
-  action: text("action"), // 'borrow', 'return'
-  status: text("status").default("borrowed"), // 'borrowed', 'returned'
+  action: text("action"),
+  status: text("status").default("borrowed"),
   borrowedAt: text("borrowed_at").default(sql`CURRENT_TIMESTAMP`),
   returnedAt: text("returned_at"),
   occurredAt: text("occurred_at").default(sql`CURRENT_TIMESTAMP`),
@@ -51,7 +51,23 @@ export const checkinEvents = sqliteTable("checkin_events", {
 export const feedbacks = sqliteTable("feedbacks", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   content: text("content").notNull(),
-  rating: integer("rating").default(5),
   username: text("username"),
+  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+});
+
+// 6. ตารางการจองสนามกีฬา
+export const fieldBookings = sqliteTable("field_bookings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  requesterName: text("requester_name").notNull(),
+  department: text("department").notNull(),
+  phone: text("phone").notNull(),
+  fieldName: text("field_name").notNull(),
+  building: text("building"),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  purposeDetail: text("purpose_detail"),
+  status: text("status").default("pending"),
   createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
