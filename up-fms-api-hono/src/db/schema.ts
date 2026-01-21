@@ -1,73 +1,43 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
-// 1. ตารางผู้ใช้งาน
-export const users = sqliteTable("users", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  fullName: text("full_name").notNull(),
-  email: text("email").notNull().unique(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").default("pending"),
-  isApproved: integer("is_approved").default(0),
-  studentId: text("student_id").default(""),
-  faculty: text("faculty").default(""),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+// 1. ตารางอุปกรณ์ (Inventory)
+export const equipments = sqliteTable('equipments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  stock: integer('stock').notNull().default(0), // จำนวนคงเหลือที่พร้อมให้ยืม
+  total: integer('total').notNull().default(0), // จำนวนทั้งหมดที่หน่วยงานมี
 });
 
-// 2. ตารางอุปกรณ์กีฬา
-export const equipments = sqliteTable("equipments", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull().unique(),
-  total: integer("total").notNull().default(0),
-  stock: integer("stock").notNull().default(0),
+// 2. ตารางบันทึกการยืม-คืน (Transaction Records)
+export const borrowRecords = sqliteTable('borrow_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  student_id: text('student_id').notNull(),
+  fullName: text('full_name'),
+  faculty: text('faculty').notNull(),
+  equipment: text('equipment').notNull(),
+  qty: integer('qty').notNull(),
+  action: text('action').notNull(),         // 'borrow' หรือ 'return'
+  status: text('status').notNull().default('borrowing'), // 'borrowing' หรือ 'returned'
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-// 3. ตารางการยืม-คืน
-export const borrowRecords = sqliteTable("borrow_records", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  equipmentId: integer("equipment_id").references(() => equipments.id),
-  studentId: text("student_id").notNull(),
-  studentName: text("student_name"),
-  faculty: text("faculty"),
-  qty: integer("qty").notNull().default(1),
-  action: text("action"),
-  status: text("status").default("borrowed"),
-  borrowedAt: text("borrowed_at").default(sql`CURRENT_TIMESTAMP`),
-  returnedAt: text("returned_at"),
-  occurredAt: text("occurred_at").default(sql`CURRENT_TIMESTAMP`),
+// 3. ตารางฟีดแบ็ก (Feedback)
+export const feedbacks = sqliteTable('feedbacks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facility: text('facility').notNull(),
+  problems: text('problems'),
+  image_url: text('image_url').notNull(), // เก็บ Base64
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
 
-// 4. ตารางบันทึกการใช้สนาม
-export const checkinEvents = sqliteTable("checkin_events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  facility: text("facility").notNull(),
-  action: text("action").default("in"),
-  count: integer("count").default(0),
-  occurredAt: text("occurred_at").default(sql`CURRENT_TIMESTAMP`),
-});
-
-// 5. ตารางความคิดเห็น/ฟีดแบ็ก
-export const feedbacks = sqliteTable("feedbacks", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  content: text("content").notNull(),
-  username: text("username"),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
-});
-
-// 6. ตารางการจองสนามกีฬา
-export const fieldBookings = sqliteTable("field_bookings", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  requesterName: text("requester_name").notNull(),
-  department: text("department").notNull(),
-  phone: text("phone").notNull(),
-  fieldName: text("field_name").notNull(),
-  building: text("building"),
-  startDate: text("start_date").notNull(),
-  endDate: text("end_date").notNull(),
-  startTime: text("start_time").notNull(),
-  endTime: text("end_time").notNull(),
-  purposeDetail: text("purpose_detail"),
-  status: text("status").default("pending"),
-  createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`),
+// 4. ตารางบันทึกการเข้าใช้สนาม (Check-in)
+export const checkinEvents = sqliteTable('checkin_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facility: text('facility').notNull(),
+  subFacility: text('sub_facility'),
+  studentCount: integer('student_count').default(0),
+  staffCount: integer('staff_count').default(0),
+  sessionDate: text('session_date').notNull(), // YYYY-MM-DD
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
