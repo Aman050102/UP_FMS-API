@@ -1,6 +1,6 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
-// ตารางบันทึกการเข้าใช้งานสนาม (ที่คุยกันก่อนหน้า)
+// 1. ตารางบันทึกการเข้าใช้งานสนาม
 export const checkins = sqliteTable('checkins', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   session_date: text('session_date').notNull(),
@@ -11,16 +11,10 @@ export const checkins = sqliteTable('checkins', {
   created_at: text('created_at').default('CURRENT_TIMESTAMP'),
 });
 
-// ตารางอื่นๆ (ตัวอย่างสำหรับอุปกรณ์และยืมคืน)
+// 2. ตารางคลังอุปกรณ์กีฬา
 export const equipment = sqliteTable('equipment', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
-  stock: integer('stock').default(0),
-});
-
-export const borrowRecords = sqliteTable('borrow_records', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  item_id: integer('item_id'),
-  user_name: text('user_name').notNull(),
-  createdAt: text('created_at').default('CURRENT_TIMESTAMP'),
+  stock: integer('stock').notNull().default(0), // จำนวนที่เหลืออยู่จริง
+  total: integer('total').notNull().default(0), // จำนวนสต็อกทั้งหมด
 });

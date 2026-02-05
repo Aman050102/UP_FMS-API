@@ -1,44 +1,113 @@
-import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
-import { eq } from 'drizzle-orm'
-import { equipments } from '../db/schema'
+import { Hono } from 'hono';
+import { drizzle } from 'drizzle-orm/d1';
+import { equipment } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
-const router = new Hono<{ Bindings: { up_fms_db: D1Database } }>()
+// กำหนด Bindings ให้ตรงกับ wrangler.json
+type Bindings = {
+  up_fms_db: D1Database;
+};
 
-// GET: /api/staff/equipment/stock/
-router.get('/stock', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const result = await db.select().from(equipments).all()
-  return c.json({ ok: true, equipments: result })
-})
+const equipmentApp = new Hono<{ Bindings: Bindings }>();
 
-// POST: /api/staff/equipment/
-router.post('/', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const body = await c.req.json()
-  await db.insert(equipments).values({
-    name: body.name,
-    stock: body.stock,
-    total: body.total
-  }).run()
-  return c.json({ ok: true })
+/**
+ * GET: ดึงรายการอุปกรณ์ทั้งหมด
+ * Path: /api/staff/equipment/stock
+ */
+equipmentApp.get('/stock', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+  try {
+    const data = await db.select().from(equipment).all();
+    return c.json({
+      ok: true,
+      equipments: data
+    });
+  } catch (error: any) {
+    console.error("Fetch Stock Error:", error);
+    return c.json({ ok: false, error: "ไม่สามารถดึงข้อมูลคลังอุปกรณ์ได้" }, 500);
+  }
 });
 
-// PATCH: /api/staff/equipment/:id/
-router.patch('/:id', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const id = parseInt(c.req.param('id'))
-  const body = await c.req.json()
-  await db.update(equipments).set(body).where(eq(equipments.id, id)).run()
-  return c.json({ ok: true })
-})
+/**
+ * POST: เพิ่มอุปกรณ์ใหม่
+ * Path: /api/staff/equipment
+ */
+equipmentApp.post('/', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+  try {
+    const body = await c.req.json();
 
-// DELETE: /api/staff/equipment/:id/
-router.delete('/:id', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const id = parseInt(c.req.param('id'))
-  await db.delete(equipments).where(eq(equipments.id, id)).run()
-  return c.json({ ok: true })
-})
+    // ตรวจสอบข้อมูลเบื้องต้น
+    if (!body.name) {
+      return c.json({ ok: false, error: "กรุณาระบุชื่ออุปกรณ์" }, 400);
+    }
 
-export default router
+    // บันทึกข้อมูล (ใช้ Number() เพื่อป้องกันค่าที่ส่งมาเป็น String)
+    const result = await db.insert(equipment).values({
+      name: body.name,
+      stock: Number(body.stock) || 0,
+      total: Number(body.total || body.stock) || 0,
+    }).returning();
+
+    return c.json({
+      ok: true,
+      data: result[0]
+    });
+  } catch (error: any) {
+    console.error("Insert Error:", error);
+    return c.json({ ok: false, error: "บันทึกข้อมูลลงฐานข้อมูลไม่สำเร็จ" }, 500);
+  }
+});
+
+/**
+ * PATCH: แก้ไขข้อมูลอุปกรณ์
+ * Path: /api/staff/equipment/:id
+ */
+equipmentApp.patch('/:id', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+  const id = Number(c.req.param('id'));
+
+  try {
+    const body = await c.req.json();
+
+    const result = await db.update(equipment)
+      .set({
+        name: body.name,
+        stock: Number(body.stock),
+        total: Number(body.total),
+      })
+      .where(eq(equipment.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      return c.json({ ok: false, error: "ไม่พบข้อมูลอุปกรณ์ที่ต้องการแก้ไข" }, 404);
+    }
+
+    return c.json({
+      ok: true,
+      data: result[0]
+    });
+  } catch (error: any) {
+    console.error("Update Error:", error);
+    return c.json({ ok: false, error: "แก้ไขข้อมูลไม่สำเร็จ" }, 500);
+  }
+});
+
+/**
+ * DELETE: ลบอุปกรณ์
+ * Path: /api/staff/equipment/:id
+ */
+equipmentApp.delete('/:id', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+  const id = Number(c.req.param('id'));
+
+  try {
+    await db.delete(equipment).where(eq(equipment.id, id)).run();
+    return c.json({ ok: true });
+  } catch (error: any) {
+    console.error("Delete Error:", error);
+    return c.json({ ok: false, error: "ลบข้อมูลไม่สำเร็จ" }, 500);
+  }
+});
+
+export default equipmentApp;
