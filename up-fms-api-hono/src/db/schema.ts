@@ -18,3 +18,16 @@ export const equipment = sqliteTable('equipment', {
   stock: integer('stock').notNull().default(0), // จำนวนที่เหลืออยู่จริง
   total: integer('total').notNull().default(0), // จำนวนสต็อกทั้งหมด
 });
+
+// 3. ยืม-คืนอุปกรณ์
+export const borrowRecords = sqliteTable('borrow_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  student_id: text('student_id').notNull(),
+  name: text('name'),
+  faculty: text('faculty').notNull(),
+  equipment: text('equipment').notNull(),
+  qty: integer('qty').notNull(),
+  action: text('action').notNull(), // 'borrow' | 'return'
+  status: text('status').default('pending'), // 'pending' | 'returned'
+  created_at: text('created_at').notNull(),
+});
