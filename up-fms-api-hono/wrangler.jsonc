@@ -9,8 +9,8 @@
   "d1_databases": [
     {
       "binding": "up_fms_db",
-      "database_name": "up-fms-db",
-      "database_id": "9ce2da43-2ab8-470a-9ec2-47ac0a5295b7"
+      "database_name": "sports-checkin-db",
+      "database_id": "b7e1b114-2db7-43bb-bcf9-348a46fa0fa6"
     }
   ]
 }

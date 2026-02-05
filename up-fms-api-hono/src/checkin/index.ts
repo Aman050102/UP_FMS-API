@@ -1,52 +1,79 @@
-import { Hono } from 'hono'
-import { drizzle } from 'drizzle-orm/d1'
-import { eq, and, between } from 'drizzle-orm'
-import { checkinEvents } from '../db/schema'
+import { Hono } from 'hono';
+import { drizzle } from 'drizzle-orm/d1';
+import { checkins } from '../db/schema';
+import { and, gte, lte, eq } from 'drizzle-orm';
 
-const router = new Hono<{ Bindings: { up_fms_db: D1Database } }>()
+// กำหนด Types สำหรับ Bindings ให้ชัดเจน
+type Bindings = {
+  up_fms_db: D1Database;
+};
 
-router.post('/event', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const body = await c.req.json()
+const checkin = new Hono<{ Bindings: Bindings }>();
+
+/**
+ * GET: ดึงข้อมูลรายงาน (สำหรับหน้า CheckinReportPage)
+ * Path: /api/checkin หรือ /api/admin/checkins
+ */
+checkin.get('/', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+  const { from, to, facility } = c.req.query();
 
   try {
-    const todayISO = new Date().toISOString().slice(0, 10)
-    await db.insert(checkinEvents).values({
+    const filters = [];
+
+    // ตรองข้อมูลตามช่วงวันที่ (session_date)
+    if (from) filters.push(gte(checkins.session_date, from));
+    if (to) filters.push(lte(checkins.session_date, to));
+
+    // กรองตามประเภทสนาม (ถ้ามีการเลือก)
+    if (facility && facility !== 'all') {
+      filters.push(eq(checkins.facility, facility));
+    }
+
+    const data = await db
+      .select()
+      .from(checkins)
+      .where(filters.length > 0 ? and(...filters) : undefined)
+      .orderBy(checkins.session_date);
+
+    return c.json(data);
+  } catch (error: any) {
+    return c.json({ success: false, error: error.message }, 500);
+  }
+});
+
+/**
+ * POST: บันทึกข้อมูลการเข้าใช้งานใหม่ (สำหรับหน้า CheckinPage)
+ * Path: /api/checkin/event
+ */
+checkin.post('/event', async (c) => {
+  const db = drizzle(c.env.up_fms_db);
+
+  try {
+    const body = await c.req.json();
+
+    // ตรวจสอบข้อมูลเบื้องต้น
+    if (!body.date || !body.facility) {
+      return c.json({ success: false, error: "Missing required fields" }, 400);
+    }
+
+    // บันทึกลง Database พร้อมจัดการประเภทข้อมูล (Type Casting)
+    const result = await db.insert(checkins).values({
+      session_date: body.date,
       facility: body.facility,
-      subFacility: body.sub_facility || '',
-      studentCount: body.students,
-      staffCount: body.staff,
-      sessionDate: todayISO,
-    }).run()
-    return c.json({ ok: true })
-  } catch (e) {
-    return c.json({ ok: false, error: 'ไม่สามารถบันทึกข้อมูลได้' }, 500)
+      sub_facility: body.sub_facility || "", // ป้องกันค่า null
+      student_count: Number(body.students) || 0, // แปลงเป็น Number ป้องกัน Error
+      staff_count: Number(body.staff) || 0,     // แปลงเป็น Number ป้องกัน Error
+    }).returning();
+
+    return c.json({
+      success: true,
+      data: result[0]
+    });
+  } catch (error: any) {
+    console.error("Insert Error:", error);
+    return c.json({ success: false, error: error.message }, 500);
   }
-})
+});
 
-router.get('/', async (c) => {
-  const db = drizzle(c.env.up_fms_db)
-  const { from, to, facility } = c.req.query()
-
-  try {
-    let query = db.select().from(checkinEvents)
-    const conditions = []
-    if (from && to) conditions.push(between(checkinEvents.sessionDate, from, to))
-    if (facility && facility !== 'all') conditions.push(eq(checkinEvents.facility, facility))
-
-    const rows = await query.where(and(...conditions)).all()
-    const formattedRows = rows.map(r => ({
-      ts: r.createdAt,
-      session_date: r.sessionDate,
-      facility: r.facility,
-      sub_facility: r.subFacility,
-      student_count: r.studentCount,
-      staff_count: r.staffCount
-    }))
-    return c.json(formattedRows)
-  } catch (e) {
-    return c.json({ ok: false, error: 'ไม่สามารถดึงข้อมูลรายงานได้' }, 500)
-  }
-})
-
-export default router
+export default checkin;
