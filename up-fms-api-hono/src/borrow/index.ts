@@ -6,36 +6,37 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 const borrow = new Hono<{ Bindings: { up_fms_db: D1Database } }>();
 
 /**
- * 1. POST: ยืมอุปกรณ์ (รองรับการบันทึกวันที่ย้อนหลัง)
- * ใช้สำหรับหน้า EquipmentPage ทั้งการยืมปกติและ Backdate
+ * 1. POST: ยืมอุปกรณ์ / บันทึกสถิติย้อนหลัง
  */
 borrow.post('/borrow', async (c) => {
   const db = drizzle(c.env.up_fms_db);
   const body = await c.req.json();
+  const isBackdate = body.skip_stock_update === true; // เช็ค flag ว่าเป็นสถิติหรือไม่
 
   try {
-    // 1. ตรวจสอบสต็อกจริงในฐานข้อมูล
-    const item = await db.select().from(equipment).where(eq(equipment.name, body.equipment)).get();
-    if (!item || item.stock < body.qty) {
-      return c.json({ ok: false, error: "อุปกรณ์ในคลังไม่เพียงพอ" }, 400);
+    // โหมดปกติ: ต้องเช็คและตัดสต็อก
+    if (!isBackdate) {
+      const item = await db.select().from(equipment).where(eq(equipment.name, body.equipment)).get();
+      if (!item || item.stock < body.qty) {
+        return c.json({ ok: false, error: "อุปกรณ์ในคลังไม่เพียงพอ" }, 400);
+      }
+
+      // ตัดสต็อกอุปกรณ์จริง
+      await db.update(equipment)
+        .set({ stock: item.stock - body.qty })
+        .where(eq(equipment.name, body.equipment))
+        .run();
     }
 
-    // 2. ตัดสต็อกอุปกรณ์
-    await db.update(equipment)
-      .set({ stock: item.stock - body.qty })
-      .where(eq(equipment.name, body.equipment))
-      .run();
-
-    // 3. บันทึกรายการยืม
-    // หาก body.borrow_date มีค่า (จากโหมด backdate) จะใช้ค่านั้นเป็น ISO String
+    // บันทึกรายการลง Ledger (ทั้งแบบปกติ และ สถิติย้อนหลัง)
     await db.insert(borrowRecords).values({
       student_id: body.student_id,
       name: body.name || "",
       faculty: body.faculty,
       equipment: body.equipment,
       qty: body.qty,
-      action: 'borrow',
-      status: 'pending',
+      action: isBackdate ? 'stat' : 'borrow', // ถ้าเป็นสถิติให้ใช้ action 'stat' เพื่อแยกประเภท
+      status: isBackdate ? 'completed' : 'pending', // สถิติไม่ต้องรอคืน
       created_at: body.borrow_date ? new Date(body.borrow_date).toISOString() : new Date().toISOString()
     }).run();
 
@@ -46,104 +47,69 @@ borrow.post('/borrow', async (c) => {
 });
 
 /**
- * 2. GET: สรุปสถิติสำหรับหน้า Report (Stats)
- * แก้ไข: ใช้ substr เพื่อเปรียบเทียบวันที่จาก ISO String ให้ถูกต้อง กราฟจะแสดงผลทันที
+ * 2. GET: สรุปสถิติสำหรับรายงาน (ดึงทั้ง borrow และ stat)
  */
 borrow.get('/stats', async (c) => {
   const db = drizzle(c.env.up_fms_db);
-  const from = c.req.query('from'); // รับค่า YYYY-MM-DD
-  const to = c.req.query('to');     // รับค่า YYYY-MM-DD
+  const from = c.req.query('from');
+  const to = c.req.query('to');
 
-  if (!from || !to) {
-    return c.json({ ok: false, error: "กรุณาระบุช่วงวันที่" }, 400);
-  }
+  if (!from || !to) return c.json({ ok: false, error: "กรุณาระบุช่วงวันที่" }, 400);
 
   try {
-    // ✅ ปรับปรุง SQL: ใช้ substr ตัดเอาเฉพาะ 10 หลักแรก (YYYY-MM-DD) มาเทียบ
+    // ดึงสถิติแยกตามชื่ออุปกรณ์ (รวมทั้งรายการยืมจริงและรายการสถิติ)
     const rows = await db.select({
       equipment: borrowRecords.equipment,
       qty: sql<number>`CAST(SUM(${borrowRecords.qty}) AS INT)`
     })
       .from(borrowRecords)
       .where(and(
-        eq(borrowRecords.action, 'borrow'),
         sql`substr(${borrowRecords.created_at}, 1, 10) >= ${from}`,
-        sql`substr(${borrowRecords.created_at}, 1, 10) <= ${to}`
+        sql`substr(${borrowRecords.created_at}, 1, 10) <= ${to}`,
+        sql`${borrowRecords.action} IN ('borrow', 'stat')`
       ))
       .groupBy(borrowRecords.equipment)
+      .orderBy(sql`SUM(${borrowRecords.qty}) DESC`)
       .all();
 
-    // ✅ ปรับปรุง SQL: ใช้ substr สำหรับยอดรวมทั้งหมด
     const totalResult = await db.select({
       total: sql<number>`CAST(SUM(${borrowRecords.qty}) AS INT)`
     })
       .from(borrowRecords)
       .where(and(
-        eq(borrowRecords.action, 'borrow'),
         sql`substr(${borrowRecords.created_at}, 1, 10) >= ${from}`,
-        sql`substr(${borrowRecords.created_at}, 1, 10) <= ${to}`
+        sql`substr(${borrowRecords.created_at}, 1, 10) <= ${to}`,
+        sql`${borrowRecords.action} IN ('borrow', 'stat')`
       ))
       .get();
 
-    return c.json({
-      ok: true,
-      rows: rows || [],
-      total: totalResult?.total || 0
-    });
+    return c.json({ ok: true, rows: rows || [], total: totalResult?.total || 0 });
   } catch (e: any) {
     return c.json({ ok: false, error: e.message }, 500);
   }
 });
 
 /**
- * 3. GET: ดึงรายการค้างคืน (Pending Returns)
+ * 3. GET: ดึงประวัติรายการตามช่วงเวลา (สำหรับตารางในหน้า Report)
  */
-borrow.get('/pending-returns', async (c) => {
+borrow.get('/history-range', async (c) => {
   const db = drizzle(c.env.up_fms_db);
-  try {
-    const data = await db.select().from(borrowRecords)
-      .where(eq(borrowRecords.status, 'pending'))
-      .orderBy(desc(borrowRecords.id))
-      .all();
+  const from = c.req.query('from');
+  const to = c.req.query('to');
 
-    const rows = data.map(r => ({ ...r, remaining: r.qty }));
+  try {
+    const rows = await db.select().from(borrowRecords)
+      .where(and(
+        sql`substr(${borrowRecords.created_at}, 1, 10) >= ${from}`,
+        sql`substr(${borrowRecords.created_at}, 1, 10) <= ${to}`
+      ))
+      .orderBy(desc(borrowRecords.created_at))
+      .all();
     return c.json({ ok: true, rows });
   } catch (e: any) {
     return c.json({ ok: false, error: e.message }, 500);
   }
 });
 
-/**
- * 4. POST: คืนอุปกรณ์
- */
-borrow.post('/return', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
-  const body = await c.req.json();
-
-  try {
-    // 1. คืนสต็อกกลับเข้าคลัง
-    const item = await db.select().from(equipment).where(eq(equipment.name, body.equipment)).get();
-    if (item) {
-      await db.update(equipment)
-        .set({ stock: item.stock + body.qty })
-        .where(eq(equipment.name, body.equipment))
-        .run();
-    }
-
-    // 2. อัปเดตสถานะการยืมเป็น returned
-    await db.update(borrowRecords)
-      .set({ status: 'returned', action: 'return' })
-      .where(and(
-        eq(borrowRecords.student_id, body.student_id),
-        eq(borrowRecords.equipment, body.equipment),
-        eq(borrowRecords.status, 'pending')
-      ))
-      .run();
-
-    return c.json({ ok: true });
-  } catch (e: any) {
-    return c.json({ ok: false, error: e.message }, 500);
-  }
-});
 
 export default borrow;
