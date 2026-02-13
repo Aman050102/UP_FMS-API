@@ -31,3 +31,12 @@ export const borrowRecords = sqliteTable('borrow_records', {
   status: text('status').default('pending'), // 'pending' | 'returned'
   created_at: text('created_at').notNull(),
 });
+
+// 4. ตารางบันทึกข้อร้องเรียนและฟีดแบค
+export const feedbacks = sqliteTable('feedbacks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  facility: text('facility').notNull(),
+  problems: text('problems'),
+  image_url: text('image_url'), // เก็บข้อมูลรูปภาพ (Base64)
+  created_at: text('created_at').notNull(),
+});

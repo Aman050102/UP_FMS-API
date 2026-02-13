@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import checkinRoutes from "./checkin/index";
 import equipmentRoutes from "./equipment/index";
 import borrowRoutes from "./borrow/index";
+import feedbackRoutes from './feedback/index';
 
 type Bindings = {
   up_fms_db: D1Database;
@@ -45,6 +46,10 @@ app.get('/api/staff/borrow-records', async (c) => {
   }));
   return c.json({ ok: true, days: [{ rows }] });
 });
+
+// 5. ระบบฟีดแบค
+app.route('/api/feedback', feedbackRoutes);       
+app.route('/api/staff/feedbacks', feedbackRoutes);
 
 // Default Route
 app.get("/", (c) => c.text("UP-FMS API (Hono) is running at Mae Ka, Phayao"));
