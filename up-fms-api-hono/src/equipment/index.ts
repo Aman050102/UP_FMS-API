@@ -29,24 +29,45 @@ equipmentApp.get('/stock', async (c) => {
 });
 
 /**
- * POST: เพิ่มอุปกรณ์ใหม่
+ * POST: เพิ่มอุปกรณ์ใหม่ (หากชื่อซ้ำจะเพิ่มยอดในรายการเดิม)
  * Path: /api/staff/equipment
  */
 equipmentApp.post('/', async (c) => {
   const db = drizzle(c.env.up_fms_db);
   try {
     const body = await c.req.json();
+    const inputName = body.name?.trim();
+    const inputStock = Number(body.stock) || 0;
 
-    // ตรวจสอบข้อมูลเบื้องต้น
-    if (!body.name) {
+    if (!inputName) {
       return c.json({ ok: false, error: "กรุณาระบุชื่ออุปกรณ์" }, 400);
     }
 
-    // บันทึกข้อมูล (ใช้ Number() เพื่อป้องกันค่าที่ส่งมาเป็น String)
+    // ตรวจสอบว่ามีอุปกรณ์ชื่อนี้อยู่แล้วหรือไม่
+    const existing = await db.select().from(equipment).where(eq(equipment.name, inputName)).get();
+
+    if (existing) {
+      // ถ้ามีอยู่แล้ว ให้บวกยอดเพิ่มเข้าไปใน ID เดิม
+      const result = await db.update(equipment)
+        .set({
+          stock: existing.stock + inputStock,
+          total: existing.total + inputStock,
+        })
+        .where(eq(equipment.id, existing.id))
+        .returning();
+
+      return c.json({
+        ok: true,
+        message: `เพิ่มจำนวน ${inputName} เข้าสู่คลังเดิมเรียบร้อยแล้ว`,
+        data: result[0]
+      });
+    }
+
+    // หากไม่มีชื่อซ้ำ ให้เพิ่มใหม่ตามปกติ
     const result = await db.insert(equipment).values({
-      name: body.name,
-      stock: Number(body.stock) || 0,
-      total: Number(body.total || body.stock) || 0,
+      name: inputName,
+      stock: inputStock,
+      total: inputStock,
     }).returning();
 
     return c.json({
