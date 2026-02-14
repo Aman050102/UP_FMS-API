@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 // 1. ตารางบันทึกการเข้าใช้งานสนาม
 export const checkins = sqliteTable('checkins', {
@@ -39,4 +40,16 @@ export const feedbacks = sqliteTable('feedbacks', {
   problems: text('problems'),
   image_url: text('image_url'), // เก็บข้อมูลรูปภาพ (Base64)
   created_at: text('created_at').notNull(),
+});
+
+// 5. login / register
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  full_name: text('full_name').notNull(),
+  email: text('email').notNull().unique(),
+  username: text('username').notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  role: text('role').default('user'), // 'user', 'staff', 'admin'
+  assigned_facility: text('assigned_facility').default('none'), // ระบุชื่อสนามที่ดูแลได้
+  created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });

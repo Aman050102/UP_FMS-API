@@ -3,6 +3,9 @@
   "name": "up-fms-api-hono",
   "main": "src/index.ts",
   "compatibility_date": "2026-01-20",
+  "vars": {
+    "RESEND_API_KEY": "re_JAXV4SvM_DAD9vPUi1wjoAUBeNLeYBSJ5"
+  },
   "observability": {
     "enabled": true
   },
@@ -12,5 +15,10 @@
       "database_name": "sports-checkin-db",
       "database_id": "b7e1b114-2db7-43bb-bcf9-348a46fa0fa6"
     }
+
   ]
+
 }
+
+
+
