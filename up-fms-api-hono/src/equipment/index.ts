@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 
 // กำหนด Bindings ให้ตรงกับ wrangler.json
 type Bindings = {
-  up_fms_db: D1Database;
+  up_f_ms_db: D1Database;
 };
 
 const equipmentApp = new Hono<{ Bindings: Bindings }>();
@@ -15,7 +15,7 @@ const equipmentApp = new Hono<{ Bindings: Bindings }>();
  * Path: /api/staff/equipment/stock
  */
 equipmentApp.get('/stock', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
   try {
     const data = await db.select().from(equipment).all();
     return c.json({
@@ -33,7 +33,7 @@ equipmentApp.get('/stock', async (c) => {
  * Path: /api/staff/equipment
  */
 equipmentApp.post('/', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
   try {
     const body = await c.req.json();
     const inputName = body.name?.trim();
@@ -85,7 +85,7 @@ equipmentApp.post('/', async (c) => {
  * Path: /api/staff/equipment/:id
  */
 equipmentApp.patch('/:id', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
   const id = Number(c.req.param('id'));
 
   try {
@@ -119,7 +119,7 @@ equipmentApp.patch('/:id', async (c) => {
  * Path: /api/staff/equipment/:id
  */
 equipmentApp.delete('/:id', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
   const id = Number(c.req.param('id'));
 
   try {

@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { drizzle } from 'drizzle-orm/d1';
+import { borrowRecords, feedbacks } from './db/schema';
+import { and, gte, lte, eq, sql, desc } from 'drizzle-orm';
 
 // Import Sub-Routers
 import checkinRoutes from "./checkin/index";
@@ -9,37 +12,125 @@ import feedbackRoutes from './feedback/index';
 import authRoutes from './auth/index';
 
 type Bindings = {
-  up_fms_db: D1Database;
+  up_f_ms_db: D1Database;
+  MY_BUCKET: R2Bucket;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Middleware - ปรับจูน CORS ให้รองรับการแก้ไขข้อมูล (PATCH, DELETE)
 app.use("*", cors({
   origin: "*",
   allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
 }));
 
-// --- [Route Management] ---
+/** Helper: สร้างการแจ้งเตือน */
+async function createNotification(db: D1Database, title: string, content: string, type: string) {
+  try {
+    await db.prepare(
+      "INSERT INTO notifications (title, content, type, created_at, is_read) VALUES (?, ?, ?, ?, ?)"
+    ).bind(title, content, type, new Date().toISOString(), 0).run();
+  } catch (e) {
+    console.error("Notification Error:", e);
+  }
+}
 
-// 1. ระบบบันทึกการเข้าใช้งานสนาม
+// --- [ Cron Job: 20:00 จันทร์-ศุกร์ ] ---
+export const handleScheduled = async (env: Bindings) => {
+  const db = drizzle(env.up_f_ms_db);
+  const now = new Date();
+  const day = now.getDay();
+  if (day >= 1 && day <= 5) {
+    const todayStr = now.toISOString().split('T')[0];
+    const records = await db.select().from(borrowRecords)
+      .where(sql`DATE(${borrowRecords.created_at}) = ${todayStr}`)
+      .all();
+    const borrows = records.filter(r => r.action === 'borrow').length;
+    const returns = records.filter(r => r.action === 'return').length;
+
+    await createNotification(
+      env.up_f_ms_db,
+      `สรุปยอดประจำวัน (${todayStr})`,
+      `วันนี้มีการยืม ${borrows} รายการ และคืน ${returns} รายการ`,
+      'summary'
+    );
+  }
+};
+
+// --- [ Route Management ] ---
+
 app.route('/api/checkin', checkinRoutes);
 app.route('/api/admin/checkins', checkinRoutes);
-
-// 2. ระบบจัดการคลังอุปกรณ์กีฬา
 app.route("/api/staff/equipment", equipmentRoutes);
 
-// 3. ระบบยืม-คืนอุปกรณ์ (สำหรับนิสิต/Staff)
+/** 🔔 Notification Endpoints */
+
+app.get('/api/staff/notifications', async (c) => {
+  const db = c.env.up_f_ms_db;
+  try {
+    const res = await db.prepare("SELECT * FROM notifications ORDER BY id DESC LIMIT 50").all();
+    const rows = res.results.map((r: any) => ({
+      ...r,
+      time: new Date(r.created_at).toLocaleString('th-TH', {
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+      }),
+      isRead: r.is_read === 1
+    }));
+    return c.json({ ok: true, rows });
+  } catch (e) {
+    return c.json({ ok: true, rows: [] });
+  }
+});
+
+app.patch('/api/staff/notifications/:id/read', async (c) => {
+  const id = c.req.param('id');
+  await c.env.up_f_ms_db.prepare("UPDATE notifications SET is_read = 1 WHERE id = ?").bind(id).run();
+  return c.json({ ok: true });
+});
+
+// ✅ แก้ไข SQL DELETE ให้ถูกต้อง (ตัด SET is_read = 1 ออก)
+app.delete('/api/staff/notifications/:id', async (c) => {
+  const id = c.req.param('id');
+  try {
+    await c.env.up_f_ms_db.prepare("DELETE FROM notifications WHERE id = ?").bind(id).run();
+    return c.json({ ok: true });
+  } catch (e: any) {
+    return c.json({ ok: false, error: e.message }, 500);
+  }
+});
+
+app.post('/api/staff/notifications/read-all', async (c) => {
+  await c.env.up_f_ms_db.prepare("UPDATE notifications SET is_read = 1").run();
+  return c.json({ ok: true });
+});
+
+app.delete('/api/staff/notifications/clear-all', async (c) => {
+  await c.env.up_f_ms_db.prepare("DELETE FROM notifications").run();
+  return c.json({ ok: true });
+});
+
+/** 📦 Borrow & Feedback Hooks */
+
+app.post('/api/equipment/borrow', async (c, next) => {
+  await next();
+  if (c.res.status === 200) {
+    await createNotification(c.env.up_f_ms_db, "มีการยืมอุปกรณ์ใหม่", `นิสิตทำรายการยืมอุปกรณ์ในระบบ`, "borrow");
+  }
+});
+
+app.post('/api/equipment/return', async (c, next) => {
+  await next();
+  if (c.res.status === 200) {
+    await createNotification(c.env.up_f_ms_db, "มีการคืนอุปกรณ์", `นิสิตทำรายการคืนอุปกรณ์เรียบร้อยแล้ว`, "return");
+  }
+});
+
 app.route("/api/equipment", borrowRoutes);
 
-// 4. หน้าประวัติ (History)
 app.get('/api/staff/borrow-records', async (c) => {
   const { drizzle } = await import('drizzle-orm/d1');
   const { borrowRecords } = await import('./db/schema');
-  const { desc } = await import('drizzle-orm');
-  const db = drizzle(c.env.up_fms_db);
-
+  const db = drizzle(c.env.up_f_ms_db);
   const data = await db.select().from(borrowRecords).orderBy(desc(borrowRecords.id)).limit(50).all();
   const rows = data.map(r => ({
     ...r,
@@ -48,14 +139,22 @@ app.get('/api/staff/borrow-records', async (c) => {
   return c.json({ ok: true, days: [{ rows }] });
 });
 
-// 5. ระบบฟีดแบค
+app.post('/api/feedback/submit', async (c, next) => {
+  await next();
+  if (c.res.status === 200) {
+    await createNotification(c.env.up_f_ms_db, "มีฟีดแบคใหม่เข้ามา", `ผู้ใช้ส่งรายงานปัญหาหรือข้อเสนอแนะใหม่`, "feedback");
+  }
+});
+
 app.route('/api/feedback', feedbackRoutes);
 app.route('/api/staff/feedbacks', feedbackRoutes);
-
-// 6. ระบบสมาชิกและการยืนยันตัวตน
 app.route('/api/auth', authRoutes);
 
-// Default Route
-app.get("/", (c) => c.text("UP-FMS API (Hono) is running at Mae Ka, Phayao"));
+app.get("/", (c) => c.text("UP-FMS API is running"));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  async scheduled(event: any, env: Bindings, ctx: any) {
+    ctx.waitUntil(handleScheduled(env));
+  },
+};

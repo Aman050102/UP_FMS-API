@@ -4,21 +4,26 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-01-20",
   "vars": {
-    "RESEND_API_KEY": "re_JAXV4SvM_DAD9vPUi1wjoAUBeNLeYBSJ5"
+    "GMAIL_USER": "upfms1930@gmail.com"
   },
   "observability": {
     "enabled": true
   },
   "d1_databases": [
     {
-      "binding": "up_fms_db",
+      "binding": "up_f_ms_db",
       "database_name": "sports-checkin-db",
       "database_id": "b7e1b114-2db7-43bb-bcf9-348a46fa0fa6"
     }
-
-  ]
-
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MY_BUCKET",
+      "bucket_name": "up-fms-bucket"
+    }
+  ],
+  "triggers": {
+  "crons": ["0 13 * * 1-5"]
 }
 
-
-
+}

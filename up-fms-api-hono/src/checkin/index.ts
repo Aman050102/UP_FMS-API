@@ -5,7 +5,7 @@ import { and, gte, lte, eq } from 'drizzle-orm';
 
 // กำหนด Types สำหรับ Bindings ให้ชัดเจน
 type Bindings = {
-  up_fms_db: D1Database;
+  up_f_ms_db: D1Database;
 };
 
 const checkin = new Hono<{ Bindings: Bindings }>();
@@ -15,7 +15,7 @@ const checkin = new Hono<{ Bindings: Bindings }>();
  * Path: /api/checkin หรือ /api/admin/checkins
  */
 checkin.get('/', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
   const { from, to, facility } = c.req.query();
 
   try {
@@ -47,7 +47,7 @@ checkin.get('/', async (c) => {
  * Path: /api/checkin/event
  */
 checkin.post('/event', async (c) => {
-  const db = drizzle(c.env.up_fms_db);
+  const db = drizzle(c.env.up_f_ms_db);
 
   try {
     const body = await c.req.json();

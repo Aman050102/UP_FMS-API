@@ -49,7 +49,8 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   username: text('username').notNull().unique(),
   password_hash: text('password_hash').notNull(),
-  role: text('role').default('user'), // 'user', 'staff', 'admin'
-  assigned_facility: text('assigned_facility').default('none'), // ระบุชื่อสนามที่ดูแลได้
+  role: text('role').default('user'),
+  avatar_url: text('avatar_url'), 
+  assigned_facility: text('assigned_facility').default('none'),
   created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
 });
