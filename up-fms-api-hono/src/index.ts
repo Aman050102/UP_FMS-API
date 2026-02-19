@@ -7,6 +7,7 @@ import equipmentRoutes from "./equipment/index";
 import borrowRoutes from "./borrow/index";
 import feedbackRoutes from './feedback/index';
 import authRoutes from './auth/index';
+import reportRoutes from './report';
 
 type Bindings = {
   up_fms_db: D1Database;
@@ -54,6 +55,9 @@ app.route('/api/staff/feedbacks', feedbackRoutes);
 
 // 6. ระบบสมาชิกและการยืนยันตัวตน
 app.route('/api/auth', authRoutes);
+
+// 7. ระบบรายงายสรุปการเข้าใช้งานและการยืมอุปกรณ์ให้เป็นเอกสาร PDF
+app.route("/api/report", reportRoutes);
 
 // Default Route
 app.get("/", (c) => c.text("UP-FMS API (Hono) is running at Mae Ka, Phayao"));
