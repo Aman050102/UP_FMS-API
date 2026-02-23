@@ -11,7 +11,7 @@
   },
   "d1_databases": [
     {
-      "binding": "up_fms_db",
+      "binding": "up_f_ms_db",
       "database_name": "sports-checkin-db",
       "database_id": "b7e1b114-2db7-43bb-bcf9-348a46fa0fa6"
     }

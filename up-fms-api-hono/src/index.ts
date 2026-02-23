@@ -1,34 +1,65 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+
+// Import Sub-Routers
+import checkinRoutes from "./checkin/index";
+import equipmentRoutes from "./equipment/index";
+import borrowRoutes from "./borrow/index";
+import feedbackRoutes from './feedback/index';
+import authRoutes from './auth/index';
+import reportRoutes from './report';
 
 type Bindings = {
-  up_f_ms_db: D1Database;
+  up_fms_db: D1Database;
 };
 
-const report = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<{ Bindings: Bindings }>();
 
-report.get("/checkin-summary", async (c) => {
-  const from = c.req.query("from");
-  const to = c.req.query("to");
+// Middleware - ปรับจูน CORS ให้รองรับการแก้ไขข้อมูล (PATCH, DELETE)
+app.use("*", cors({
+  origin: "*",
+  allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+}));
 
-  if (!from || !to) {
-    return c.json({ error: "from and to required" }, 400);
-  }
+// --- [Route Management] ---
 
-  const result = await c.env.up_f_ms_db
-    .prepare(`
-      SELECT 
-        session_date as date,
-        facility,
-        SUM(student_count + staff_count) as total
-      FROM checkins
-      WHERE date(session_date) BETWEEN date(?) AND date(?)
-      GROUP BY session_date, facility
-      ORDER BY session_date
-    `)
-    .bind(from, to)
-    .all();
+// 1. ระบบบันทึกการเข้าใช้งานสนาม
+app.route('/api/checkin', checkinRoutes);
+app.route('/api/admin/checkins', checkinRoutes);
 
-  return c.json(result.results);
+// 2. ระบบจัดการคลังอุปกรณ์กีฬา
+app.route("/api/staff/equipment", equipmentRoutes);
+
+// 3. ระบบยืม-คืนอุปกรณ์ (สำหรับนิสิต/Staff)
+app.route("/api/equipment", borrowRoutes);
+
+// 4. หน้าประวัติ (History)
+app.get('/api/staff/borrow-records', async (c) => {
+  const { drizzle } = await import('drizzle-orm/d1');
+  const { borrowRecords } = await import('./db/schema');
+  const { desc } = await import('drizzle-orm');
+  const db = drizzle(c.env.up_fms_db);
+
+  const data = await db.select().from(borrowRecords).orderBy(desc(borrowRecords.id)).limit(50).all();
+  const rows = data.map(r => ({
+    ...r,
+    time: new Date(r.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  }));
+  return c.json({ ok: true, days: [{ rows }] });
 });
 
-export default report;
+// 5. ระบบฟีดแบค
+app.route('/api/feedback', feedbackRoutes);
+app.route('/api/staff/feedbacks', feedbackRoutes);
+
+// 6. ระบบสมาชิกและการยืนยันตัวตน
+app.route('/api/auth', authRoutes);
+
+// 7. ระบบรายงายสรุปการเข้าใช้งานและการยืมอุปกรณ์ให้เป็นเอกสาร PDF
+app.route("/api/report", reportRoutes);
+
+// Default Route
+app.get("/", (c) => c.text("UP-FMS API (Hono) is running at Mae Ka, Phayao"));
+
+export default app;
