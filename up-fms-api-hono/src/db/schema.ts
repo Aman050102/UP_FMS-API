@@ -50,7 +50,22 @@ export const users = sqliteTable('users', {
   username: text('username').notNull().unique(),
   password_hash: text('password_hash').notNull(),
   role: text('role').default('user'),
-  avatar_url: text('avatar_url'), 
+  avatar_url: text('avatar_url'),
   assigned_facility: text('assigned_facility').default('none'),
   created_at: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+
+// 6. disposalRequests
+export const disposalRequests = sqliteTable('disposal_requests', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  equipmentId: integer('equipment_id').notNull(),
+  equipmentName: text('equipment_name').notNull(),
+  qty: integer('qty').notNull(),
+  reason: text('reason').notNull(),
+  reporterName: text('reporter_name').notNull(),
+  imageBase64: text('image_base64'),
+  status: text('status').default('pending'),
+  createdAt: text('created_at').default(new Date().toISOString()),
+  approvedAt: text('approved_at'),
 });

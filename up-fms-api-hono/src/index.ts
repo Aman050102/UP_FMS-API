@@ -10,6 +10,7 @@ import equipmentRoutes from "./equipment/index";
 import borrowRoutes from "./borrow/index";
 import feedbackRoutes from './feedback/index';
 import authRoutes from './auth/index';
+import disposal from './disposal/index';
 
 type Bindings = {
   up_f_ms_db: D1Database;
@@ -151,6 +152,9 @@ app.route('/api/staff/feedbacks', feedbackRoutes);
 app.route('/api/auth', authRoutes);
 
 app.get("/", (c) => c.text("UP-FMS API is running"));
+
+app.route('/api/equipment', disposal); 
+app.route('/api/staff', disposal);
 
 export default {
   fetch: app.fetch,
